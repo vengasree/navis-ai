@@ -1,6 +1,12 @@
 function ResultCard({ result }) {
-  const riskClass = result.riskLevel.toLowerCase()
-  const decision = result.riskLevel === 'Low' ? 'Safe' : 'Risky'
+  // Support both old (riskLevel) and new (risk_level) formats
+  const riskLevel = result.risk_level || result.riskLevel || 'Low'
+  const riskClass = riskLevel.toLowerCase()
+
+  // Support both "result" field and old logic
+  const decision = result.result || (riskLevel === 'Low' ? 'Safe' : 'Risky')
+
+  const reasons = result.reasons || []
 
   return (
     <section className={'result-card risk-' + riskClass}>
@@ -8,7 +14,7 @@ function ResultCard({ result }) {
         <div className="result-block">
           <span className="result-label">Risk Level</span>
           <span className={'risk-badge badge-' + riskClass}>
-            {result.riskLevel}
+            {riskLevel}
           </span>
         </div>
 
@@ -23,7 +29,7 @@ function ResultCard({ result }) {
       <div className="result-reasons">
         <h3 className="reasons-title">Why?</h3>
         <ul className="reasons-list">
-          {result.reasons.map((reason, index) => (
+          {reasons.map((reason, index) => (
             <li key={index}>{reason}</li>
           ))}
         </ul>

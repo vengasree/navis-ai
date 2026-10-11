@@ -7,24 +7,25 @@ function ClarifyQuestions() {
   const answered = knowSender !== '' && expecting !== ''
 
   let recommendation = null
+
   if (answered) {
     if (knowSender === 'Yes' && expecting === 'Yes') {
       recommendation = {
         type: 'safe',
         title: 'Likely Safe',
-        text: 'You know the sender and expected this message. It is probably fine, but avoid sharing passwords or OTPs.',
+        text: 'You know the sender and you were expecting this message. It is probably safe. Still, never share passwords or OTPs.',
       }
     } else if (knowSender === 'No' && expecting === 'No') {
       recommendation = {
         type: 'risky',
-        title: 'Risky - Do Not Respond',
-        text: 'Unknown sender and unexpected message. Do not click links or share any details. Delete or report the message.',
+        title: 'High Risk – Do Not Respond',
+        text: 'Unknown sender and unexpected message. Do not click any links or share personal details. Delete or report the message.',
       }
     } else {
       recommendation = {
-        type: 'risky',
+        type: 'caution',
         title: 'Be Careful',
-        text: 'Something does not match. Verify with the sender through an official number or website before doing anything.',
+        text: 'Some details do not match. Verify through an official website or phone number before taking any action.',
       }
     }
   }
@@ -32,9 +33,10 @@ function ClarifyQuestions() {
   return (
     <section className="clarify-card">
       <h3 className="clarify-title">Navis AI needs a little more information</h3>
+      <p className="clarify-subtitle">Please answer these questions so I can give a better recommendation.</p>
 
       <div className="question">
-        <p className="question-text">Do you know this sender?</p>
+        <p className="question-text">1. Do you know this sender?</p>
         <div className="answer-buttons">
           {['Yes', 'No'].map((option) => (
             <button
@@ -49,7 +51,7 @@ function ClarifyQuestions() {
       </div>
 
       <div className="question">
-        <p className="question-text">Were you expecting this message?</p>
+        <p className="question-text">2. Were you expecting this message?</p>
         <div className="answer-buttons">
           {['Yes', 'No'].map((option) => (
             <button
@@ -66,7 +68,7 @@ function ClarifyQuestions() {
       {recommendation && (
         <div className={'recommendation rec-' + recommendation.type}>
           <h4 className="rec-title">Final Recommendation: {recommendation.title}</h4>
-          <p>{recommendation.text}</p>
+          <p className="rec-text">{recommendation.text}</p>
         </div>
       )}
     </section>

@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Navis AI - Personal Security Agent",
+  "version": "0.1.0",
+  "description": "AI-powered security analysis for emails and messages.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://mail.google.com/*",
+    "http://localhost:5000/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://mail.google.com/*"
+      ],
+      "js": [
+        "content/gmail.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

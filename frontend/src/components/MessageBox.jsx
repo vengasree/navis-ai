@@ -4,7 +4,7 @@ import ClarifyQuestions from './ClarifyQuestions'
 import { analyseMessage } from '../api/analyse'
 
 // SWITCH: false = use fake sample data, true = use your teammate's backend
-const USE_BACKEND = false
+const USE_BACKEND = true;
 
 const sampleResults = {
   Low: {
@@ -45,9 +45,23 @@ function MessageBox() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const examples = {
+    bank: `URGENT: Your bank account will be blocked within 24 hours.
+Click this link immediately to verify your KYC:
+https://secure-bank-verify.com
+Enter your Aadhaar and OTP to continue.`,
+    data: `Hi, please note my details:
+Aadhaar: 1234 5678 9012
+PAN: ABCDE1234F
+Phone: 9876543210
+Password: MySecret@123`,
+    normal: `Hi Priya, are we still meeting tomorrow at 5 PM for the project discussion? Let me know.`
+  }
+
   const handleAnalyse = async () => {
     setLoading(true)
     setError('')
+    setResult(null)
 
     try {
       let newResult
@@ -66,12 +80,31 @@ function MessageBox() {
     setLoading(false)
   }
 
+  const handleClear = () => {
+    setMessage('')
+    setResult(null)
+    setError('')
+  }
+
   return (
     <>
       <section className="message-box">
         <label className="message-label" htmlFor="message-input">
           Paste your email, SMS, or chat message
         </label>
+
+        {/* Example Buttons */}
+        <div className="example-buttons">
+          <button type="button" onClick={() => setMessage(examples.bank)}>
+            Bank KYC Scam
+          </button>
+          <button type="button" onClick={() => setMessage(examples.data)}>
+            Data Overshare
+          </button>
+          <button type="button" onClick={() => setMessage(examples.normal)}>
+            Normal Message
+          </button>
+        </div>
 
         <textarea
           id="message-input"
@@ -82,19 +115,31 @@ function MessageBox() {
           rows={8}
         />
 
-        <button
-          className="analyse-button"
-          onClick={handleAnalyse}
-          disabled={message.trim() === '' || loading}
-        >
-          {loading ? 'Analysing...' : 'Analyse'}
-        </button>
+        <div className="char-count">{message.length} characters</div>
+
+        <div className="button-row">
+          <button
+            className="analyse-button"
+            onClick={handleAnalyse}
+            disabled={message.trim() === '' || loading}
+          >
+            {loading ? 'Analysing...' : 'Analyse'}
+          </button>
+
+          <button
+            className="clear-button"
+            onClick={handleClear}
+            type="button"
+          >
+            Clear
+          </button>
+        </div>
 
         {error && <p className="error-text">{error}</p>}
       </section>
 
       {result && <ResultCard result={result} />}
-      {result && result.riskLevel === 'Medium' && (
+      {result && (result.riskLevel === 'Medium' || result.risk_level === 'Medium') && (
         <ClarifyQuestions key={round} />
       )}
     </>
