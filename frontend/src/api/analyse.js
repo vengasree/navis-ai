@@ -1,5 +1,5 @@
 
-const API_URL = 'https://navis-ai-g3x1.onrender.com/analyse';
+const API_URL = 'https://navis-ai-g3xl.onrender.com/analyse';
 
 export async function analyseMessage(message) {
   const response = await fetch(API_URL, {
