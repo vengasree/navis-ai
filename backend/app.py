@@ -154,6 +154,81 @@ def assess_urgency(subject, body):
     return "Low"
 
 
+def assess_website_example_risk(subject, body, urls):
+    """Extra conservative checks for website-originated message analysis."""
+    text = f"{subject}\n{body}".lower()
+    reasons = []
+    score = 0
+    strong_threat = False
+
+    # Requests for credentials or one-time codes.
+    credential_request = re.search(
+        r"\b(?:enter|provide|submit|share|send)\s+"
+        r"(?:your\s+)?(?:password|otp|one[- ]time password|verification code)\b",
+        text,
+        re.I,
+    )
+
+    if credential_request:
+        score += 6
+        strong_threat = True
+        reasons.append(
+            "The message requests a password or verification code."
+        )
+
+    # Sensitive identifiers already included in the message.
+    exposed_data = (
+        re.search(r"\baadhaar\s*:\s*\d{4}\s?\d{4}\s?\d{4}\b", text, re.I)
+        or re.search(r"\baadhar\s*:\s*\d{4}\s?\d{4}\s?\d{4}\b", text, re.I)
+        or re.search(r"\bpan\s*:\s*[a-z]{5}\d{4}[a-z]\b", text, re.I)
+        or re.search(r"\bpassword\s*:\s*\S+", text, re.I)
+    )
+
+    if exposed_data:
+        score += 5
+        strong_threat = True
+        reasons.append(
+            "The message contains exposed personal or credential information."
+        )
+
+    # High-pressure account warnings.
+    urgency = re.search(
+        r"\b(?:account.{0,40}(?:blocked|suspended)|"
+        r"blocked.{0,40}account|within 24 hours|"
+        r"act immediately|final warning|"
+        r"verify your kyc|verify your account)\b",
+        text,
+        re.I,
+    )
+
+    sensitive_request = re.search(
+        r"\b(?:aadhaar|aadhar|pan|otp|password|bank details)\b",
+        text,
+        re.I,
+    )
+
+    if urgency:
+        score += 2
+        reasons.append("The message uses urgent account or verification language.")
+
+    if urls and urgency and sensitive_request:
+        score += 3
+        strong_threat = True
+        reasons.append(
+            "The message combines an urgent warning, a link, and a request "
+            "involving sensitive information."
+        )
+
+    if strong_threat or score >= 8:
+        level, decision = "High", "Risky"
+    elif score >= 4:
+        level, decision = "Moderate", "Needs Review"
+    else:
+        level, decision = "Low", "Unverified"
+
+    return level, decision, reasons
+
+
 def extract_urls(body, supplied_urls):
     """
     Merge URLs extracted from the email text with URLs supplied by the extension.
@@ -676,6 +751,21 @@ def analyse():
         ai = make_fallback_ai(subject, body)
 
     graph = normalize_graph_result(final_state)
+    
+    # Apply extra rules only to website requests.
+    # Other clients, including the Chrome extension, keep the graph result.
+    if email["source"] == "navis_web":
+        web_level, web_decision, web_reasons = assess_website_example_risk(
+            subject, body, email["urls"]
+        )
+
+        priority = {"Unknown": 0, "Low": 1, "Moderate": 2, "High": 3}
+        if priority.get(web_level, 0) > priority.get(graph["risk_level"], 0):
+            graph["risk_level"] = web_level
+            graph["result"] = web_decision
+            graph["reasons"] = list(dict.fromkeys(
+                web_reasons + graph["reasons"]
+            ))[:6]
 
     response = {
         "risk_level": graph["risk_level"],
