@@ -1,5 +1,5 @@
 
-const API_URL = 'http://127.0.0.1:5000/analyse'
+const API_URL = 'https://navis-ai-g3x1.onrender.com/analyse';
 
 export async function analyseMessage(message) {
   const response = await fetch(API_URL, {
@@ -9,17 +9,17 @@ export async function analyseMessage(message) {
       message,
       source: 'navis_web',
     }),
-  })
+  });
 
   if (!response.ok) {
-    throw new Error('Backend error: ' + response.status)
+    throw new Error('Backend error: ' + response.status);
   }
 
-  const data = await response.json()
+  const data = await response.json();
 
   return {
     ...data,
     riskLevel: data.risk_level,
     reasons: Array.isArray(data.reasons) ? data.reasons : [],
-  }
+  };
 }
