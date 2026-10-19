@@ -1,15 +1,20 @@
+
 console.log("Navis AI Gmail security agent loaded.");
 
 let lastEmailSignature = "";
 let analysisTimer = null;
 let navisPanel = null;
+let currentAnalysisId = 0;
 
 function getEmailContent() {
     const subject =
         document.querySelector("h2.hP")?.innerText.trim() || "";
 
     const body =
-        document.querySelector("div.a3s.aiL")?.innerText.trim() || "";
+        [...document.querySelectorAll("div.a3s")]
+            .map(el => el.innerText.trim())
+            .filter(Boolean)
+            .sort((a, b) => b.length - a.length)[0] || "";
 
     const senderEl = document.querySelector("span.gD");
 
@@ -19,12 +24,13 @@ function getEmailContent() {
         "";
 
     let senderEmail =
-        document.querySelector("span[email]")?.getAttribute("email") || "";
+        senderEl?.getAttribute("email") ||
+        document.querySelector("span[email]")?.getAttribute("email") ||
+        "";
 
     if (!senderEmail) {
         for (const el of document.querySelectorAll("[email]")) {
             const value = el.getAttribute("email");
-
             if (value && value.includes("@")) {
                 senderEmail = value;
                 break;
@@ -34,13 +40,12 @@ function getEmailContent() {
 
     const urls = [
         ...new Set(
-            [...document.querySelectorAll("div.a3s.aiL a[href]")]
+            [...document.querySelectorAll("div.a3s a[href]")]
                 .map(a => a.href)
-                .filter(
-                    href =>
-                        href &&
-                        !href.startsWith("mailto:") &&
-                        !href.startsWith("javascript:")
+                .filter(href =>
+                    href &&
+                    !href.startsWith("mailto:") &&
+                    !href.startsWith("javascript:")
                 )
         )
     ];
@@ -95,7 +100,8 @@ function createNavisPanel() {
             <div style="font-size:10px;color:#64748b">Personal AI Security Agent</div>
           </div>
         </div>
-        <button id="navis-close" aria-label="Close Navis" style="border:none;background:none;font-size:20px;color:#64748b;cursor:pointer;line-height:1">×</button>
+        <button id="navis-close" aria-label="Close Navis"
+          style="border:none;background:none;font-size:20px;color:#64748b;cursor:pointer">×</button>
       </div>
       <div id="navis-panel-content">
         <div style="color:#64748b;font-size:11px">Analyzing this email...</div>
@@ -128,30 +134,23 @@ function createNavisPanel() {
         }
     );
 
-    navisPanel.querySelector("#navis-panel-content").style.padding =
-        "14px";
+    navisPanel.querySelector("#navis-panel-content").style.padding = "14px";
 
-    navisPanel.querySelector("#navis-close").addEventListener(
-        "click",
-        () => {
-            navisPanel.remove();
-            navisPanel = null;
-        }
-    );
+    navisPanel.querySelector("#navis-close").addEventListener("click", () => {
+        navisPanel.remove();
+        navisPanel = null;
+    });
 
     document.body.appendChild(navisPanel);
-
     return navisPanel;
 }
 
-function showLoading() {
+function showLoading(message = "Navis is scanning the email...") {
     const content =
         createNavisPanel().querySelector("#navis-panel-content");
 
-    content.innerHTML = `
-      <div style="padding:10px 0;color:#64748b;font-size:12px">
-        Navis is scanning the email...
-      </div>`;
+    content.style.cssText = "padding:14px;color:#64748b;font-size:12px";
+    content.textContent = message;
 }
 
 function renderReasons(reasons) {
@@ -161,56 +160,55 @@ function renderReasons(reasons) {
                 .map(x => String(x || "").trim())
                 .filter(Boolean)
         )
-    ].slice(0, 3);
+    ].slice(0, 4);
 
     if (!unique.length) {
-        return `
-          <li>No major warning signs were detected by the available checks.</li>`;
+        return "<li>No additional findings were returned by the analysis.</li>";
     }
 
     return unique.map(reason => `
-      <li style="font-size:11px;line-height:1.45;margin-bottom:5px;color:#334155">
+      <li style="font-size:11px;line-height:1.5;margin-bottom:5px;color:#334155">
         ${escapeHtml(reason)}
       </li>`).join("");
 }
 
 function renderAssessment(result, email, isFinal = false) {
+    result = result && typeof result === "object" ? result : {};
+
     const panel = createNavisPanel();
+    const content = panel.querySelector("#navis-panel-content");
 
-    const content =
-        panel.querySelector("#navis-panel-content");
-
-    const risk = ["Low", "Moderate", "High"].includes(result.risk_level)
-        ? result.risk_level
-        : "Low";
+    const riskValue = String(result.risk_level || "Unknown");
+    const risk = ["Low", "Moderate", "High", "Unknown"].includes(riskValue)
+        ? riskValue
+        : "Unknown";
 
     const riskColor =
-        risk === "High"
-            ? "#dc2626"
-            : risk === "Moderate"
-                ? "#ca8a04"
-                : "#16a34a";
+        risk === "High" ? "#dc2626" :
+        risk === "Moderate" ? "#ca8a04" :
+        risk === "Low" ? "#16a34a" : "#64748b";
 
-    const urgency =
-        ["Low", "Medium", "High"].includes(result.urgency_level)
-            ? result.urgency_level
-            : "Low";
+    const urgencyValue = String(result.urgency_level || "Low");
+    const urgency = ["Low", "Medium", "High"].includes(urgencyValue)
+        ? urgencyValue
+        : "Low";
 
     const urgencyColor =
-        urgency === "High"
-            ? "#dc2626"
-            : urgency === "Medium"
-                ? "#ca8a04"
-                : "#16a34a";
+        urgency === "High" ? "#dc2626" :
+        urgency === "Medium" ? "#ca8a04" : "#16a34a";
 
-    const minutes = Math.max(
-        1,
-        Number(result.reading_time_minutes) || 1
+    const minutes = Math.max(1, Number(result.reading_time_minutes) || 1);
+
+    const summary = String(
+        result.email_summary ||
+        "A summary could not be generated. Review the original email carefully."
     );
 
-    const summary =
-        result.email_summary ||
-        "A summary could not be created from the available email text.";
+    const replyNeeded = String(result.reply_needed || "uncertain")
+        .trim()
+        .toLowerCase();
+
+    const draftReply = String(result.draft_reply || "").trim();
 
     let html = `
       <div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.5px;margin-bottom:6px">
@@ -225,13 +223,13 @@ function renderAssessment(result, email, isFinal = false) {
       </div>
 
       <div style="font-size:11px;color:#475569;margin-bottom:13px">
-        Decision: <strong>${escapeHtml(result.result || "Needs review")}</strong>
+        Decision: <strong>${escapeHtml(result.result || "Unverified")}</strong>
       </div>
 
       <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:6px">
         Email summary
       </div>
-      <div style="font-size:11px;line-height:1.55;color:#334155;margin-bottom:12px">
+      <div style="font-size:11px;line-height:1.55;color:#334155;margin-bottom:12px;white-space:pre-wrap">
         ${escapeHtml(summary)}
       </div>
 
@@ -239,65 +237,61 @@ function renderAssessment(result, email, isFinal = false) {
         What you need to do
       </div>
       <div style="font-size:11px;line-height:1.5;color:#334155;margin-bottom:12px">
-        ${escapeHtml(result.action_needed || "Review the email and decide whether it requests an action.")}
+        ${escapeHtml(result.action_needed || "Review the email and verify any requests independently.")}
       </div>
 
       <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:5px">
         Reply needed?
       </div>
       <div style="font-size:11px;line-height:1.5;color:#334155;margin-bottom:8px">
-        ${escapeHtml((result.reply_needed || "uncertain").toUpperCase())}
+        ${escapeHtml(replyNeeded.toUpperCase())}
         ${result.reply_reason ? " — " + escapeHtml(result.reply_reason) : ""}
-      </div>
+      </div>`;
 
-      ${
-        result.reply_needed === "yes" && result.draft_reply
-            ? `
-              <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:5px">
-                Suggested reply (edit before using)
-              </div>
+    if (draftReply && replyNeeded !== "no") {
+        html += `
+          <div style="font-size:12px;font-weight:700;color:#0f172a;margin:10px 0 5px">
+            Suggested reply (edit before using)
+          </div>
+          <textarea id="navis-reply-draft" rows="5"
+            style="box-sizing:border-box;width:100%;resize:vertical;padding:8px;border:1px solid #cbd5e1;border-radius:7px;font:11px/1.5 Arial,sans-serif;color:#334155">${escapeHtml(draftReply)}</textarea>
+          <button id="navis-copy-reply"
+            style="margin:7px 0 14px;padding:7px 10px;border:0;border-radius:6px;background:#2563eb;color:white;cursor:pointer;font-size:11px">
+            Copy draft
+          </button>`;
+    } else if (replyNeeded === "yes" && !draftReply) {
+        html += `
+          <div style="font-size:11px;line-height:1.5;color:#92400e;margin:6px 0 12px">
+            A reply may be useful, but no draft was returned. Review the message and compose a reply only if the sender is trusted.
+          </div>`;
+    }
 
-              <textarea id="navis-reply-draft" rows="5"
-                style="box-sizing:border-box;width:100%;resize:vertical;padding:8px;border:1px solid #cbd5e1;border-radius:7px;font:11px/1.5 Arial,sans-serif;color:#334155">${escapeHtml(result.draft_reply)}</textarea>
-
-              <button id="navis-copy-reply"
-                style="margin:7px 0 14px;padding:7px 10px;border:0;border-radius:6px;background:#2563eb;color:white;cursor:pointer;font-size:11px">
-                Copy draft
-              </button>
-            `
-            : ""
-      }
-
-      <div style="display:flex;gap:8px;margin-bottom:14px">
+    html += `
+      <div style="display:flex;gap:8px;margin:12px 0 14px">
         <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:9px">
           <div style="font-size:10px;color:#64748b;margin-bottom:4px">Urgency</div>
           <div style="font-size:12px;font-weight:700;color:${urgencyColor}">
             ${escapeHtml(urgency)}
           </div>
         </div>
-
         <div style="flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:9px">
           <div style="font-size:10px;color:#64748b;margin-bottom:4px">Reading time</div>
-          <div style="font-size:12px;font-weight:700;color:#334155">
-            ~${minutes} min
-          </div>
+          <div style="font-size:12px;font-weight:700;color:#334155">~${minutes} min</div>
         </div>
       </div>
 
       <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:6px">
         Why Navis decided this
       </div>
-
       <ul style="margin:0;padding-left:18px">
         ${renderReasons(result.reasons)}
       </ul>`;
 
-    if (
-        !isFinal &&
-        result.needs_questions &&
-        Array.isArray(result.questions) &&
-        result.questions.length
-    ) {
+    const questions = Array.isArray(result.questions)
+        ? result.questions.filter(q => typeof q === "string" && q.trim()).slice(0, 4)
+        : [];
+
+    if (!isFinal && result.needs_questions && questions.length) {
         html += `
           <div style="margin-top:14px;padding:11px;background:#eff6ff;border:1px solid #dbeafe;border-radius:9px">
             <div style="font-size:12px;font-weight:700;color:#1e3a8a;margin-bottom:6px">
@@ -307,23 +301,20 @@ function renderAssessment(result, email, isFinal = false) {
               Answer these short questions about the email.
             </div>`;
 
-        result.questions.forEach((question, i) => {
+        questions.forEach((question, i) => {
             html += `
               <div style="margin-top:10px">
                 <div style="font-size:11px;font-weight:600;color:#334155;margin-bottom:5px">
                   ${i + 1}. ${escapeHtml(question)}
                 </div>
-
                 <button class="navis-answer" data-index="${i}" data-answer="Yes"
                   style="padding:5px 12px;margin-right:5px;border:1px solid #cbd5e1;border-radius:6px;background:white;cursor:pointer;font-size:10px">
                   Yes
                 </button>
-
                 <button class="navis-answer" data-index="${i}" data-answer="No"
                   style="padding:5px 12px;border:1px solid #cbd5e1;border-radius:6px;background:white;cursor:pointer;font-size:10px">
                   No
                 </button>
-
                 <input type="hidden" id="navis-answer-${i}" value="">
               </div>`;
         });
@@ -343,30 +334,24 @@ function renderAssessment(result, email, isFinal = false) {
           </div>`;
     }
 
+    content.style.cssText = "padding:14px";
     content.innerHTML = html;
 
-    const copyReplyButton =
-        panel.querySelector("#navis-copy-reply");
+    const copyButton = panel.querySelector("#navis-copy-reply");
 
-    if (copyReplyButton) {
-        copyReplyButton.addEventListener("click", async () => {
-            const draft =
-                panel.querySelector("#navis-reply-draft");
-
+    if (copyButton) {
+        copyButton.addEventListener("click", async () => {
+            const draft = panel.querySelector("#navis-reply-draft");
             if (!draft) return;
 
             try {
                 await navigator.clipboard.writeText(draft.value);
-
-                copyReplyButton.textContent =
-                    "Copied — paste into Gmail reply";
-            } catch (_) {
+                copyButton.textContent = "Copied — paste into Gmail reply";
+            } catch {
                 draft.focus();
                 draft.select();
-
                 const copied = document.execCommand("copy");
-
-                copyReplyButton.textContent = copied
+                copyButton.textContent = copied
                     ? "Copied — paste into Gmail reply"
                     : "Select the draft and copy it";
             }
@@ -376,13 +361,9 @@ function renderAssessment(result, email, isFinal = false) {
     panel.querySelectorAll(".navis-answer").forEach(button => {
         button.addEventListener("click", () => {
             const index = button.dataset.index;
+            const input = panel.querySelector(`#navis-answer-${index}`);
 
-            const input =
-                panel.querySelector(`#navis-answer-${index}`);
-
-            if (input) {
-                input.value = button.dataset.answer;
-            }
+            if (input) input.value = button.dataset.answer;
 
             panel.querySelectorAll(
                 `.navis-answer[data-index="${index}"]`
@@ -398,14 +379,13 @@ function renderAssessment(result, email, isFinal = false) {
         });
     });
 
-    const submit =
-        panel.querySelector("#navis-submit-answers");
+    const submit = panel.querySelector("#navis-submit-answers");
 
     if (submit) {
         submit.addEventListener("click", async () => {
             const answers = [];
 
-            for (let i = 0; i < result.questions.length; i++) {
+            for (let i = 0; i < questions.length; i++) {
                 const answer =
                     panel.querySelector(`#navis-answer-${i}`)?.value;
 
@@ -414,44 +394,31 @@ function renderAssessment(result, email, isFinal = false) {
                     return;
                 }
 
-                answers.push({
-                    question: result.questions[i],
-                    answer
-                });
+                answers.push({ question: questions[i], answer });
             }
 
             submit.disabled = true;
-            submit.textContent = "Analyzing...";
+            submit.textContent = "Analyzing your answers...";
 
             try {
                 const response = await chrome.runtime.sendMessage({
                     type: "ANALYZE_EMAIL",
-                    data: {
-                        ...email,
-                        user_answers: answers
-                    }
+                    data: { ...email, user_answers: answers }
                 });
 
-                if (!response?.success) {
-                    throw new Error(
-                        response?.error || "Follow-up analysis failed."
-                    );
+                if (!response?.success || !response.result) {
+                    throw new Error(response?.error || "Follow-up analysis failed.");
                 }
 
                 renderAssessment(response.result, email, true);
-
             } catch (error) {
                 submit.disabled = false;
                 submit.textContent = "Try again";
 
                 const note = document.createElement("div");
-
                 note.style.cssText =
                     "margin-top:8px;color:#dc2626;font-size:11px";
-
-                note.textContent =
-                    error.message || "Follow-up analysis failed.";
-
+                note.textContent = error.message || "Follow-up analysis failed.";
                 content.appendChild(note);
             }
         });
@@ -466,16 +433,17 @@ function showFinalResult(result, email = getEmailContent()) {
     renderAssessment(result, email, true);
 }
 
-async function analyzeCurrentEmail() {
+async function analyzeCurrentEmail(force = false) {
     const email = getEmailContent();
 
     if (!isEmailOpen(email)) return;
 
     const signature = createEmailSignature(email);
 
-    if (signature === lastEmailSignature) return;
+    if (!force && signature === lastEmailSignature) return;
 
     lastEmailSignature = signature;
+    const analysisId = ++currentAnalysisId;
 
     showLoading();
 
@@ -485,35 +453,32 @@ async function analyzeCurrentEmail() {
             data: email
         });
 
-        if (!response?.success) {
-            throw new Error(
-                response?.error || "Backend analysis failed."
-            );
+        if (analysisId !== currentAnalysisId) return;
+
+        if (!response?.success || !response.result) {
+            throw new Error(response?.error || "Backend analysis failed.");
         }
 
         showResult(response.result, email);
-
     } catch (error) {
-        console.error("Navis automatic analysis error:", error);
+        if (analysisId !== currentAnalysisId) return;
+
+        console.error("Navis email analysis error:", error);
 
         const content =
             createNavisPanel().querySelector("#navis-panel-content");
 
-        content.textContent =
-            "Navis could not analyze this email. Please check that the backend is running, then refresh Gmail.";
-
         content.style.cssText =
             "padding:14px;color:#dc2626;font-size:11px;line-height:1.5";
+
+        content.textContent =
+            `Navis could not analyze this email: ${error.message}. Check that the backend is running, then refresh Gmail.`;
     }
 }
 
 function scheduleAnalysis() {
     clearTimeout(analysisTimer);
-
-    analysisTimer = setTimeout(
-        () => analyzeCurrentEmail(),
-        1200
-    );
+    analysisTimer = setTimeout(() => analyzeCurrentEmail(), 1200);
 }
 
 const observer = new MutationObserver(scheduleAnalysis);
@@ -525,34 +490,27 @@ if (document.body) {
     });
 }
 
-setTimeout(analyzeCurrentEmail, 2000);
+setTimeout(() => analyzeCurrentEmail(), 2000);
 
-chrome.runtime.onMessage.addListener(
-    (message, sender, sendResponse) => {
-        if (message?.type === "GET_EMAIL") {
-            try {
-                const email = getEmailContent();
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type !== "GET_EMAIL") {
+        return;
+    }
 
-                if (!email.body) {
-                    email.body =
-                        document.body?.innerText.trim() || "";
-                }
+    try {
+        const email = getEmailContent();
 
-                sendResponse({
-                    success: true,
-                    data: email
-                });
-
-            } catch (error) {
-                sendResponse({
-                    success: false,
-                    error:
-                        error.message ||
-                        "Could not extract this email."
-                });
-            }
+        if (!email.body) {
+            email.body = document.body?.innerText.trim() || "";
         }
 
-        return true;
+        sendResponse({ success: true, data: email });
+    } catch (error) {
+        sendResponse({
+            success: false,
+            error: error.message || "Could not extract this email."
+        });
     }
-);
+
+    // This handler responds synchronously.
+});
