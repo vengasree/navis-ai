@@ -187,7 +187,3 @@ The exact analysis steps depend on the current implementation in `backend/app.py
 - The free Render service may take additional time to respond after inactivity.
 - The Chrome extension must be installed separately; deploying the website does not automatically publish the extension.
 - The project should not be considered a substitute for professional email security software or independent verification.
-
-## 📜 License
-
-No license has been specified yet. Add a `LICENSE` file if you intend to publish the project with defined reuse and distribution terms.
