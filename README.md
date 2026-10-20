@@ -24,7 +24,6 @@ The project combines a React frontend, a Flask backend, and a security analysis 
 | Backend | Python, Flask, Flask-CORS |
 | Security workflow | LangGraph |
 | AI integration | Google Gemini API |
-| Optional local model | Ollama |
 | Browser integration | Chrome Extension, Manifest V3 |
 | Frontend hosting | Vercel |
 | Backend hosting | Render |
@@ -79,7 +78,6 @@ Opening the backend's root URL may display `404 Not Found` if no root route is d
 - Google Chrome
 - Git (optional)
 - A Gemini API key for Gemini-powered functionality
-- Ollama, if using the optional local-model integration
 
 ### 1. Clone the repository
 
